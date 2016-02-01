@@ -7,6 +7,13 @@
 #include <d3dx11.h>
 #include <D3DX10.h>
 
+// defines to make it simple
+#define null NULL
+#define CLASS_NAME "WidnowClass1"
+#define WINDOW_TITLE "DirectX 11 App"
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+
 // include Direct3D Library files
 #pragma comment (lib, "d3d11.lib")
 #pragma comment (lib, "d3dx11.lib")
@@ -16,18 +23,15 @@
 IDXGISwapChain *swapchain;             // the pointer to the swap chain interface
 ID3D11Device *dev;                     // the pointer to our Direct3D device interface
 ID3D11DeviceContext *devcon;           // the pointer to our Direct3D device context
+ID3D11RenderTargetView *backbuffer;    // global declaration
 
 // function prototypes
-void InitD3D(HWND hWnd);     // sets up and initializes Direct3D
-void CleanD3D(void);         // closes Direct3D and releases memory
+void InitD3D(HWND hWnd);		// sets up and initializes Direct3D
+void RenderFrame(float r, float g, float b);			// renders a single frame
+void CleanD3D(void);			// closes Direct3D and releases memory
+LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);		// WindowProc() prototype
 
 
-#define null NULL
-#define CLASS_NAME "WidnowClass1"
-#define WINDOW_TITLE "DirectX 11 App"
-
-							 // WindowProc() prototype
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 // the entry point for any Windows program
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -54,7 +58,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// register the window class               
 	RegisterClassEx(&wc);
 
-	RECT wr = { 0, 0, 800, 600 };
+	RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, false);
 
 	// create the window and use the result as the handle
@@ -84,6 +88,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// this struct holds Windows event messages
 	MSG msg;
 
+	
+	float r = 0.2f;
+	float g = 0.2f;
+	float b = 0.2f;
+
 	// wait for the next message in the queue, store the result in 'msg'
 	while (true)
 	{
@@ -99,10 +108,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (msg.message == WM_QUIT)
 				break;
 		}
-		else
-		{
-			// Game Code HERE!
-		}
+
+		// Game Code HERE!
+		RenderFrame(r,g,b);
+
+		
 	}
 
 	// clean up DirectX and COM
@@ -119,12 +129,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 	switch (message)
 	{
 		// this message is read when the window is closed
-	case WM_DESTROY:
-	{
-		//close the application entirely
-		PostQuitMessage(0);
-		return 0;
-	} break;
+		case WM_DESTROY:
+		{
+			//close the application entirely
+			PostQuitMessage(0);
+			return 0;
+		} break;
 	}
 
 	// handle any messages the switch statement didn't
@@ -162,6 +172,28 @@ void InitD3D(HWND hWnd)
 		&dev,
 		NULL,
 		&devcon);
+
+	// get the address of the back buffer
+	ID3D11Texture2D *pBackBuffer;
+	swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+
+	// use the back buffer address to create the render target
+	dev->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
+	pBackBuffer->Release();
+
+	// set the render target as the back buffer
+	devcon->OMSetRenderTargets(1, &backbuffer, NULL);
+
+	// Set the viewport
+	D3D11_VIEWPORT viewport;
+	ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = SCREEN_WIDTH;
+	viewport.Height = SCREEN_HEIGHT;
+
+	devcon->RSSetViewports(1, &viewport);
 }
 
 // this is the function that cleans up Direct3D and COM
@@ -169,6 +201,19 @@ void CleanD3D()
 {
 	// close and release all existing COM objects
 	swapchain->Release();
+	backbuffer->Release();
 	dev->Release();
 	devcon->Release();
+}
+
+// this function is used to render a single frame
+void RenderFrame(float r, float g, float b)
+{
+	// clear the back buffer to a deep blue
+	devcon->ClearRenderTargetView(backbuffer, D3DXCOLOR(r, g, b, 1.0f));
+
+	// do 3D rendering on the back buffer here
+
+	// switch the back buffer and the front buffer
+	swapchain->Present(0, 0);
 }
